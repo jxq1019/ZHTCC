@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>智慧停车场管理平台</title>
+    <script src="https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { text-align: center; padding: 10px; background: #2c3e50; color: white; border-radius: 8px; }
+        .parking-area { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .parking-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin-top: 10px; }
+        .parking-space { height: 80px; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; font-weight: bold; cursor: pointer; }
+        .free { background: #2ecc71; }
+        .occupied { background: #e74c3c; }
+        .status { margin: 10px 0; padding: 10px; background: #ecf0f1; border-radius: 6px; display: flex; justify-content: space-between; }
+        .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .chart-box { background: white; padding: 20px; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>智慧停车场管理平台</h1>
+        </div>
+
+        <div class="parking-area">
+            <h2>车位实时状态</h2>
+            <div class="status">
+                <div>总车位：<span id="total">10</span></div>
+                <div>空闲：<span id="free">0</span></div>
+                <div>占用：<span id="occupied">0</span></div>
+                <div>排风状态：<span id="fan">关闭</span></div>
+            </div>
+            <div class="parking-grid" id="parking-grid"></div>
+        </div>
+
+        <div class="charts">
+            <div class="chart-box">
+                <h3>时段车流统计</h3>
+                <div id="traffic-chart" style="width: 100%; height: 250px;"></div>
+            </div>
+            <div class="chart-box">
+                <h3>环境监测</h3>
+                <div style="display: flex; gap: 10px; height: 250px;">
+                    <div id="pm25-chart" style="flex: 1;"></div>
+                    <div id="temp-chart" style="flex: 1;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化图表
+        $(function() {
+            // 车流图
+            const traffic = echarts.init(document.getElementById('traffic-chart'));
+            traffic.setOption({
+                tooltip: { trigger: 'axis' },
+                xAxis: { type: 'category', data: ['00', '03', '06', '09', '12', '15', '18', '21'] },
+                yAxis: { type: 'value' },
+                series: [
+                    { name: '进场', type: 'bar', data: [2,1,3,8,5,7,10,4], color: '#2ecc71' },
+                    { name: '离场', type: 'bar', data: [1,0,2,6,4,5,8,3], color: '#e74c3c' }
+                ]
+            });
+
+            // PM2.5仪表盘
+            const pm25 = echarts.init(document.getElementById('pm25-chart'));
+            pm25.setOption({
+                series: [{
+                    type: 'gauge',
+                    name: 'PM2.5',
+                    min: 0, max: 150,
+                    data: [{ value: 60, name: 'μg/m³' }]
+                }]
+            });
+
+            // 温度仪表盘
+            const temp = echarts.init(document.getElementById('temp-chart'));
+            temp.setOption({
+                series: [{
+                    type: 'gauge',
+                    name: '温度',
+                    min: 0, max: 40,
+                    data: [{ value: 25.5, name: '℃' }]
+                }]
+            });
+
+            // 生成车位
+            renderSpaces();
+            // 定时更新
+            setInterval(updateData, 3000);
+
+            // 窗口自适应
+            window.onresize = function() {
+                traffic.resize();
+                pm25.resize();
+                temp.resize();
+            };
+        });
+
+        // 渲染车位
+        function renderSpaces() {
+            const grid = $('#parking-grid');
+            grid.empty();
+            for (let i=1; i<=10; i++) {
+                grid.append(`
+                    <div class="parking-space free" id="space-A${i}">
+                        A${i}<br><small>空闲</small>
+                    </div>
+                `);
+            }
+        }
+
+        // 更新数据
+        function updateData() {
+            // 模拟数据
+            const spaces = [];
+            let free = 0;
+            for (let i=1; i<=10; i++) {
+                const occupied = Math.random()>0.5;
+                spaces.push({ id: `A${i}`, occupied });
+                if (!occupied) free++;
+            }
+
+            // 更新车位状态
+            spaces.forEach(s => {
+                const el = $(`#space-${s.id}`);
+                if (s.occupied) {
+                    el.removeClass('free').addClass('occupied').html(`${s.id}<br><small>占用</small>`);
+                } else {
+                    el.removeClass('occupied').addClass('free').html(`${s.id}<br><small>空闲</small>`);
+                }
+            });
+
+            // 更新状态栏
+            $('#free').text(free);
+            $('#occupied').text(10-free);
+            $('#fan').text(Math.random()>0.7 ? '开启' : '关闭');
+
+            // 更新仪表盘
+            const pm25Val = Math.floor(Math.random()*80+20);
+            const tempVal = Math.round((Math.random()*20+15)*10)/10;
+            echarts.getInstanceByDom(document.getElementById('pm25-chart')).setOption({
+                series: [{ data: [{ value: pm25Val }] }]
+            });
+            echarts.getInstanceByDom(document.getElementById('temp-chart')).setOption({
+                series: [{ data: [{ value: tempVal }] }]
+            });
+        }
+    </script>
+</body>
+</html>
